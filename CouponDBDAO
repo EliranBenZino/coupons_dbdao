@@ -1,0 +1,179 @@
+package dbdao;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
+
+import beans.Category;
+import beans.Coupon;
+import beans.Customer;
+import dao.CouponDao;
+import projectDb.ConnectionPool;
+
+public class CouponDBDAO implements CouponDao {
+
+	@Override
+	public void addCoupon(Coupon c1) throws SQLException {
+		Connection connection = ConnectionPool.getInstance().getConnection();
+
+		try {
+			PreparedStatement stmt = connection.prepareStatement(
+					"insert into coupons ( companyId, categoryid, title, descreption, startDate, endDate, amount, price, imageLink) values (?,?,?,?,?,?,?,?,?) ");
+			stmt.setInt(1, c1.getCompanyID());
+			stmt.setObject(2, c1.getCategory());
+			stmt.setString(3, c1.getTitle());
+			stmt.setString(4, c1.getDescription());
+			stmt.setDate(5, c1.getStartDate());
+			stmt.setDate(6, c1.getEndDate());
+			stmt.setInt(7, c1.getAmount());
+			stmt.setDouble(8, c1.getPrice());
+			stmt.setString(9, c1.getImage());
+			stmt.executeUpdate();
+		
+		} catch (SQLException e) {
+			throw new SQLException(e.getMessage());
+
+		} finally {
+			ConnectionPool.getInstance().restoreConnection(connection);
+		}
+	}
+
+	@Override
+	public void updateCoupon(Coupon c1) throws SQLException {
+		Connection connection = ConnectionPool.getInstance().getConnection();
+
+		try {
+			PreparedStatement stmt = connection
+					.prepareStatement("update coupons set companyId=?, categoryid=?, title=?,"
+							+ "descreption=?,set startDate=?,set endDate=?,"
+							+ " amount=?, price=?, imageLink=? where CouponId=" + c1.getId());
+
+			stmt.setInt(1, c1.getCompanyID());
+			stmt.setObject(2, c1.getCategory());
+			stmt.setString(3, c1.getTitle());
+			stmt.setString(4, c1.getDescription());
+			stmt.setDate(5, c1.getStartDate());
+			stmt.setDate(6, c1.getEndDate());
+			stmt.setInt(7, c1.getAmount());
+			stmt.setDouble(8, c1.getPrice());
+			stmt.setString(9, c1.getImage());
+			stmt.executeUpdate();
+		} finally {
+			ConnectionPool.getInstance().restoreConnection(connection);
+		}
+	}
+
+	// delete coupon by ID
+	@Override
+	public void deleteCoupon(int couponID) throws SQLException {
+		Connection connection = ConnectionPool.getInstance().getConnection();
+
+		try {
+			PreparedStatement stmt = connection.prepareStatement("delete from coupons where CouponId=" + couponID);
+			stmt.executeUpdate();
+		} catch (SQLException e) {
+			throw new SQLException(e.getMessage());
+
+		} finally {
+			ConnectionPool.getInstance().restoreConnection(connection);
+		}
+	}
+
+	@Override
+	public ArrayList<Coupon> getAllCoupons() throws SQLException {
+		Connection connection = ConnectionPool.getInstance().getConnection();
+		ArrayList<Coupon> tempCoupons = new ArrayList<>();
+		try {
+			PreparedStatement stmt = connection.prepareStatement("select * from coupons");
+			ResultSet rs = stmt.executeQuery();
+			while (rs.next()) {
+				Coupon Coup = ResultSetToCoupon(rs);
+				tempCoupons.add(Coup);
+			}
+		} finally {
+			ConnectionPool.getInstance().restoreConnection(connection);
+		}
+		return tempCoupons;
+	}
+
+	@Override
+	public Coupon getOneCoupon(int id) throws SQLException {
+		Connection connection = ConnectionPool.getInstance().getConnection();
+		Coupon tempCoupon = new Coupon();
+		try {
+			PreparedStatement stmt = connection.prepareStatement("select * from coupons where CouponId = " + id);
+			stmt.setInt(1, id);
+			ResultSet rs = stmt.executeQuery();
+			if (rs.next()) {
+				tempCoupon = ResultSetToCoupon(rs);
+			}
+
+			return tempCoupon;
+		} finally {
+			ConnectionPool.getInstance().restoreConnection(connection);
+		}
+	}
+
+	@Override
+	public void addCouponPurchase(int customerId, int couponID) throws SQLException {
+		Connection con = ConnectionPool.getInstance().getConnection();
+		try {
+			PreparedStatement pr = con.prepareStatement("insert into customer_vs_coupons (couponID, customerID) values ("+couponID+","+customerId+")");
+			ResultSet rSet = pr.executeQuery();
+				}finally {
+					ConnectionPool.getInstance().restoreConnection(con);
+				}
+
+	}
+	//delete a specific line in ustomer_vs_coupons table
+	@Override
+	public void deleteCouponPurchase(int customerId, int couponID) throws SQLException {
+		Connection con = ConnectionPool.getInstance().getConnection();
+
+		try {
+			PreparedStatement stmt = con.prepareStatement("delete from customer_vs_coupons where couponid = ? and couponID =?");
+			stmt.setInt(1, customerId);
+			stmt.setInt(2, couponID);
+			stmt.executeUpdate();
+		}finally {
+			ConnectionPool.getInstance().restoreConnection(con);
+		}
+	}
+	// CouponId, companyId, categoryid, title, descreption, startDate, endDate,
+	// amount, price, imageLink
+	
+	//util method that implement all  the resultsets into tmp. coupon "x"
+	public static Coupon ResultSetToCoupon(ResultSet resultSet) throws SQLException {
+
+		Coupon x = new Coupon();
+
+		x.setId(resultSet.getInt("CouponId"));
+		x.setCompanyID(resultSet.getInt("companyId"));
+		x.setCategory(Category.values()[resultSet.getInt("categoryid")]);
+		x.setTitle(resultSet.getString("title"));
+		x.setDescription(resultSet.getString("descreption"));
+		x.setStartDate(resultSet.getDate("startDate"));
+		x.setEndDate(resultSet.getDate("endDate"));
+		x.setAmount(resultSet.getInt("amount"));
+		x.setPrice(resultSet.getDouble("price"));
+		x.setImage(resultSet.getString("imageLink"));
+
+		return x;
+	}
+	//delete all the coupons by id from the customers_coupons table.
+	//in order to delete coupon or customer we have to run this method to clear the customers_coupons table
+	//from foreign keys that are connected there.
+	public void deleteAllCouponPurchase(int couponID) throws SQLException{
+		Connection con = ConnectionPool.getInstance().getConnection();
+
+		try {
+			PreparedStatement stmt = con.prepareStatement("delete from customer_vs_coupons where couponid = ?");
+			stmt.setInt(1, couponID);
+			stmt.executeUpdate();
+		}finally {
+			ConnectionPool.getInstance().restoreConnection(con);
+		}
+	}
+}
