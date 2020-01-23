@@ -1,0 +1,179 @@
+package dbdao;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
+
+import beans.Coupon;
+import beans.Customer;
+import dao.CustomerDao;
+import exep.NotExistsException;
+import projectDb.ConnectionPool;
+
+public class CustomerDBDAO implements CustomerDao {
+
+	@Override
+	public boolean isCustomerExists(String email, String password) throws SQLException {
+		Connection connection = ConnectionPool.getInstance().getConnection();
+		try {
+			PreparedStatement stmt = connection
+					.prepareStatement("select * from customers where email = ? and password = ?");
+			ResultSet rs = stmt.executeQuery();
+
+			return rs.next();
+		} finally {
+			ConnectionPool.getInstance().restoreConnection(connection);
+		}
+	}
+
+	@Override
+	public void addCustomer(Customer customer) throws SQLException {
+		Connection connection = ConnectionPool.getInstance().getConnection();
+
+		try {
+			PreparedStatement stmt = connection
+					.prepareStatement("insert into customers (firstName,lastName, email, password) values (?,?,?,?) ");
+			stmt.setString(1, customer.getFirstnName());
+			stmt.setString(2, customer.getLastName());
+			stmt.setString(3, customer.getEmail());
+			stmt.setString(4, customer.getPassword());
+			stmt.executeUpdate();
+
+		} catch (SQLException e) {
+			throw new SQLException(e.getMessage());
+
+		} finally {
+			ConnectionPool.getInstance().restoreConnection(connection);
+		}
+	}
+
+	@Override
+	public void updateCustomer(Customer x) throws SQLException {
+		Connection connection = ConnectionPool.getInstance().getConnection();
+
+		try {
+			PreparedStatement stmt = connection.prepareStatement(
+					"update customers set firstName=?,  lastName=?,  email=?,  password=?  where customerId =?");
+			stmt.setString(1, x.getFirstnName());
+			stmt.setString(2, x.getLastName());
+			stmt.setString(3, x.getEmail());
+			stmt.setString(4, x.getPassword());
+			stmt.setInt(5, x.getId());
+			stmt.executeUpdate();
+		} finally {
+			ConnectionPool.getInstance().restoreConnection(connection);
+		}
+	}
+
+	@Override
+	public void deleteCustomer(int customerId) throws SQLException {
+		Connection connection = ConnectionPool.getInstance().getConnection();
+
+		try {
+			PreparedStatement stmt = connection
+					.prepareStatement("delete from customers where customerId = " + customerId);
+			stmt.executeUpdate();
+			// need to add delete all customer's bought coupons - in facade i will add the delete all coupons
+		} catch (SQLException e) {
+			throw new SQLException(e.getMessage());
+
+		} finally {
+			ConnectionPool.getInstance().restoreConnection(connection);
+		}
+	}
+
+	@Override
+	public ArrayList<Customer> getAllCustomer() throws SQLException {
+		Connection connection = ConnectionPool.getInstance().getConnection();
+		ArrayList<Customer> tempCustomers = new ArrayList<>();
+		try {
+			PreparedStatement stmt = connection.prepareStatement("select * from customers");
+			ResultSet rs = stmt.executeQuery();
+			while (rs.next()) {
+				Customer C = ResultSetToCustomer(rs);
+				tempCustomers.add(C);
+			}
+		} finally {
+			ConnectionPool.getInstance().restoreConnection(connection);
+		}
+		return tempCustomers;
+	}
+
+	@Override
+	public Customer getOneCustomer(int id) throws SQLException {
+		Connection connection = ConnectionPool.getInstance().getConnection();
+		Customer tempCus = new Customer();
+		try {
+			PreparedStatement stmt = connection.prepareStatement("select * from customers where customerId =? ");
+			stmt.setInt(1, id);
+			ResultSet rs = stmt.executeQuery();
+			if (rs.next()) {
+				tempCus = ResultSetToCustomer(rs);
+			}
+			return tempCus;
+		} finally {
+			ConnectionPool.getInstance().restoreConnection(connection);
+		}
+	}
+
+	public void purcahseCoupon(Coupon cup1, Customer cus1) throws SQLException {
+		Connection connection = ConnectionPool.getInstance().getConnection();
+		try {
+			PreparedStatement stmt = connection
+					.prepareStatement("insert into customer_vs_coupons (couponID, customerID) values (?,?) ");
+
+			stmt.setInt(1, cup1.getId());
+			stmt.setInt(2, cus1.getId());
+
+			stmt.executeUpdate();
+		} finally {
+			ConnectionPool.getInstance().restoreConnection(connection);
+		}
+
+	}
+
+	public void deletePurchasedCouponsByCouponId(int couponId) throws SQLException {
+		Connection connection = ConnectionPool.getInstance().getConnection();
+
+		try {
+			PreparedStatement stmt = connection
+					.prepareStatement("delete from customer_vs_coupons where couponID = " + couponId);
+			stmt.executeUpdate();
+
+		} catch (SQLException e) {
+			throw new SQLException(e.getMessage());
+
+		} finally {
+			ConnectionPool.getInstance().restoreConnection(connection);
+		}
+	}
+
+	public void deleteAllCustomerCouponsByCustomerID(int customerID) throws SQLException {
+		Connection connection = ConnectionPool.getInstance().getConnection();
+
+		try {
+			PreparedStatement stmt = connection
+					.prepareStatement("delete from customer_vs_coupons where customerID = " + customerID);
+			stmt.executeUpdate();
+
+		} catch (SQLException e) {
+			throw new SQLException(e.getMessage());
+
+		} finally {
+			ConnectionPool.getInstance().restoreConnection(connection);
+		}
+	}
+	public static Customer ResultSetToCustomer(ResultSet result) throws SQLException {
+
+		Customer customer = new Customer();
+		customer.setId(result.getInt("customerId"));
+		customer.setFirstnName(result.getString("firstName"));
+		customer.setLastName(result.getString("lastName"));
+		customer.setPassword(result.getString("password"));
+		customer.setEmail(result.getString("email"));
+
+		return customer;
+	}
+}
