@@ -1,0 +1,147 @@
+package dbdao;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
+
+import org.omg.PortableServer.ID_ASSIGNMENT_POLICY_ID;
+
+import com.mysql.cj.exceptions.RSAException;
+
+import beans.Company;
+import dao.CompanyDao;
+import projectDb.ConnectionPool;
+
+public class CompanyDBDAO implements CompanyDao {
+
+	/**
+	 * check if a company exists by checking email&password by running on the table
+	 * and check if the result set will find any line to return. if he won't find
+	 * there is no company with those attributes
+	 */
+	@Override
+	public boolean companyExists(String email, String password) throws SQLException {
+		Connection connection = ConnectionPool.getInstance().getConnection();
+		try {
+			PreparedStatement stmt = connection
+					.prepareStatement("select * from companies where email = ? and password = ?");
+			ResultSet rs = stmt.executeQuery();
+
+			return rs.next();
+		} finally {
+			ConnectionPool.getInstance().restoreConnection(connection);
+		}
+	}
+
+	@Override
+	public void addCompany(Company company) throws SQLException {
+		Connection connection = ConnectionPool.getInstance().getConnection();
+
+		try {
+			PreparedStatement stmt = connection
+					.prepareStatement("insert into companies (companyName, email, password) values (?,?,?) ");
+			stmt.setString(1, company.getName());
+			stmt.setString(2, company.getEmail());
+			stmt.setString(3, company.getPassword());
+			stmt.executeUpdate();
+
+		} catch (SQLException e) {
+			throw new SQLException(e.getMessage());
+
+		} finally {
+			ConnectionPool.getInstance().restoreConnection(connection);
+		}
+	}
+
+	@Override
+	public void updateCompany(Company x, int companyID) throws SQLException {
+		Connection connection = ConnectionPool.getInstance().getConnection();
+
+		try {
+			PreparedStatement stmt = connection.prepareStatement(
+					"update companies set companyName=?, set email=?,set password=?  where id = " + companyID);
+			stmt.setString(1, x.getName());
+			stmt.setString(2, x.getEmail());
+			stmt.setString(3, x.getPassword());
+			stmt.executeUpdate();
+		} finally {
+			ConnectionPool.getInstance().restoreConnection(connection);
+		}
+	}
+
+	@Override
+	public void deleteCompany(int id) throws SQLException {
+		Connection connection = ConnectionPool.getInstance().getConnection();
+
+		try {
+			PreparedStatement stmt = connection.prepareStatement("delete from companies where id = " + id);
+			stmt.executeUpdate();
+			// need to add delete all company coupons
+		} catch (SQLException e) {
+			throw new SQLException(e.getMessage());
+
+		} finally {
+			ConnectionPool.getInstance().restoreConnection(connection);
+		}
+	}
+
+	@Override
+	public ArrayList<Company> getAllCompanies() throws SQLException {
+		Connection connection = ConnectionPool.getInstance().getConnection();
+		ArrayList<Company> tempCompanies = new ArrayList<>();
+		try {
+			PreparedStatement stmt = connection.prepareStatement("select * from companies");
+			ResultSet rs = stmt.executeQuery();
+			while(rs.next()) {
+				Company comp = ResultSetToCompany(rs);
+				tempCompanies.add(comp);
+			}
+		}finally {
+			ConnectionPool.getInstance().restoreConnection(connection);
+		}
+		return tempCompanies;
+	}
+
+	@Override
+	public Company getOneCompany(int id) throws SQLException {
+		Connection connection = ConnectionPool.getInstance().getConnection();
+		Company tempCompany = new Company();
+		try {
+			PreparedStatement stmt = connection.prepareStatement("select * from companies where companyId = " + id);
+			stmt.setInt(1, id);
+			ResultSet rs = stmt.executeQuery();
+			if (rs.next()) {
+				tempCompany = ResultSetToCompany(rs);
+			}
+
+			
+			return tempCompany;
+		} finally {
+			ConnectionPool.getInstance().restoreConnection(connection);
+		}
+	}
+
+	/*
+	 * ResultSetToCompany converts the first line of a ResultSet to a Company
+	 * object. the cursor should already point to the relevant line when provoking
+	 * this method
+	 * 
+	 * @parameter result a ResultSet of a query in the DB company table.
+	 * 
+	 * @return a company object which represents the current line of the ResultSet
+	 * 
+	 * @throws SQLException
+	 */
+	public static Company ResultSetToCompany(ResultSet result) throws SQLException {
+
+		Company company = new Company();
+		company.setId(result.getInt("id"));
+		company.setName(result.getString("companyName"));
+		company.setPassword(result.getString("password"));
+		company.setEmail(result.getString("email"));
+
+		return company;
+	}
+}
